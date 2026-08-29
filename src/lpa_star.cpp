@@ -5,14 +5,14 @@
 #include <algorithm>
 
 bool LPAStarPlanner::isBadState(uint64_t stateId) {
-    for (uint64_t b : problemPtr->badStates) {
+    for (uint64_t b : problem.badStates) {
         if (b == stateId) return true;
     }
     return false;
 }
 
 double LPAStarPlanner::effectiveCost(const Transition& t) {
-    double dist = distanceToNearestBadState(stateLookup[t.to], problemPtr->badStates, problemPtr->states);
+    double dist = distanceToNearestBadState(stateLookup[t.to], problem.badStates, problem.states);
     double penalty = (dist > 0.0001) ? (1.0 / dist) : 1000.0;
     return t.cost + penalty;
 }
@@ -33,21 +33,21 @@ void LPAStarPlanner::removeFromQueue(uint64_t stateId) {
 
 std::pair<double,double> LPAStarPlanner::calculateKey(uint64_t stateId) {
     double minVal = std::min(g[stateId], rhs[stateId]);
-    double h = heuristic(stateLookup[stateId], stateLookup[problemPtr->goalState]);
+    double h = heuristic(stateLookup[stateId], stateLookup[problem.goalState]);
     return {minVal + h, minVal};
 }
 
 void LPAStarPlanner::initialize() {
-    for (const State& s : problemPtr->states) {
+    for (const State& s : problem.states) {
         g[s.id] = std::numeric_limits<double>::infinity();
         rhs[s.id] = std::numeric_limits<double>::infinity();
     }
-    rhs[problemPtr->initialState] = 0.0;
-    pushQueue(problemPtr->initialState);
+    rhs[problem.initialState] = 0.0;
+    pushQueue(problem.initialState);
 }
 
 void LPAStarPlanner::updateVertex(uint64_t u) {
-    if (u != problemPtr->initialState) {
+    if (u != problem.initialState) {
         double bestRhs = std::numeric_limits<double>::infinity();
         for (const Transition& t : incoming[u]) {
             if (!t.available) continue;
@@ -75,11 +75,11 @@ void LPAStarPlanner::computeShortestPath() {
             }
         }
         QueueEntry top = queue[minIndex];
-        auto goalKey = calculateKey(problemPtr->goalState);
+        auto goalKey = calculateKey(problem.goalState);
         bool topLessThanGoal = (top.k1 < goalKey.first) ||
             (top.k1 == goalKey.first && top.k2 < goalKey.second);
 
-        if (!topLessThanGoal && rhs[problemPtr->goalState] == g[problemPtr->goalState]) {
+        if (!topLessThanGoal && rhs[problem.goalState] == g[problem.goalState]) {
             break;
         }
 
@@ -101,10 +101,10 @@ void LPAStarPlanner::computeShortestPath() {
     }
 }
 
-PlanningResult LPAStarPlanner::plan(const PlanningProblem& problem) {
-    problemPtr = &problem;
-    Graph graph(problem);
-    graphPtr = &graph;
+PlanningResult LPAStarPlanner::plan(const PlanningProblem& inputProblem) {
+    problem = inputProblem;
+    delete graphPtr;
+    graphPtr = new Graph(problem);
 
     stateLookup.clear();
     for (const State& s : problem.states) stateLookup[s.id] = s;
@@ -119,6 +119,49 @@ PlanningResult LPAStarPlanner::plan(const PlanningProblem& problem) {
     initialize();
     computeShortestPath();
 
+    return extractResult();
+}
+
+PlanningResult LPAStarPlanner::onTransitionUnavailable(uint64_t transitionId, uint64_t fromState, uint64_t toState) {
+    graphPtr->setAvailable(transitionId, fromState, false);
+    for (auto& t : incoming[toState]) {
+        if (t.id == transitionId) t.available = false;
+    }
+    updateVertex(toState);
+    computeShortestPath();
+    return extractResult();
+}
+
+PlanningResult LPAStarPlanner::onTransitionAdded(const Transition& t) {
+    graphPtr->addTransition(t);
+    incoming[t.to].push_back(t);
+    problem.transitions.push_back(t);
+    updateVertex(t.to);
+    computeShortestPath();
+    return extractResult();
+}
+
+PlanningResult LPAStarPlanner::onBadStatesChanged(const std::vector<uint64_t>& newBadStates) {
+    problem.badStates = newBadStates;
+    for (const State& s : problem.states) {
+        updateVertex(s.id);
+    }
+    computeShortestPath();
+    return extractResult();
+}
+
+PlanningResult LPAStarPlanner::onGoalChanged(uint64_t newGoal) {
+    problem.goalState = newGoal;
+    std::vector<QueueEntry> oldQueue = queue;
+    queue.clear();
+    for (auto& entry : oldQueue) {
+        pushQueue(entry.stateId);
+    }
+    computeShortestPath();
+    return extractResult();
+}
+
+PlanningResult LPAStarPlanner::extractResult() {
     PlanningResult result;
     result.totalCost = 0;
     result.safetyScore = 0;

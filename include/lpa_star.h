@@ -11,14 +11,20 @@ class LPAStarPlanner : public Planner {
 public:
     PlanningResult plan(const PlanningProblem& problem) override;
 
+    // Replanning entry points (Module 6)
+    PlanningResult onTransitionUnavailable(uint64_t transitionId, uint64_t fromState, uint64_t toState);
+    PlanningResult onTransitionAdded(const Transition& t);
+    PlanningResult onBadStatesChanged(const std::vector<uint64_t>& newBadStates);
+    PlanningResult onGoalChanged(uint64_t newGoal);
+
 private:
     struct QueueEntry {
         double k1, k2;
         uint64_t stateId;
     };
 
-    const PlanningProblem* problemPtr;
-    Graph* graphPtr;
+    PlanningProblem problem;
+    Graph* graphPtr = nullptr;
     std::unordered_map<uint64_t, State> stateLookup;
     std::unordered_map<uint64_t, std::vector<Transition>> incoming;
     std::unordered_map<uint64_t, double> g;
@@ -33,6 +39,7 @@ private:
     double effectiveCost(const Transition& t);
     void pushQueue(uint64_t stateId);
     void removeFromQueue(uint64_t stateId);
+    PlanningResult extractResult();
 };
 
 #endif
