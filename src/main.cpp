@@ -1,15 +1,33 @@
 #include "../include/planning_problem.h"
-#include "../include/graph.h"
-#include "../include/safety.h"
-#include "../include/heuristic.h"
+#include "../include/lpa_star.h"
 #include <iostream>
 
 int main() {
-    State s; s.id = 1; s.embedding = {0.0, 0.0};
-    State goal; goal.id = 2; goal.embedding = {3.0, 4.0};
+    PlanningProblem p;
+    p.initialState = 1;
+    p.goalState = 4;
 
-    double h = heuristic(s, goal);
-    std::cout << "Heuristic: " << h << std::endl; // should print 5
+    p.states = {
+        {1, {0.0, 0.0}},
+        {2, {1.0, 0.0}},
+        {3, {2.0, 0.0}},
+        {4, {3.0, 0.0}}
+    };
+
+    p.transitions = {
+        {1, 1, 2, 1.0, 1.0, 1.0, true},
+        {2, 2, 3, 1.0, 1.0, 1.0, true},
+        {3, 3, 4, 1.0, 1.0, 1.0, true}
+    };
+
+    LPAStarPlanner planner;
+    PlanningResult r = planner.plan(p);
+
+    std::cout << "Success: " << r.success << std::endl;
+    std::cout << "Path: ";
+    for (uint64_t s : r.statePath) std::cout << s << " ";
+    std::cout << std::endl;
+    std::cout << "Cost: " << r.totalCost << std::endl;
 
     return 0;
 }
