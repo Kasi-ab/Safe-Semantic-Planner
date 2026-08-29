@@ -11,6 +11,8 @@ class LPAStarPlanner : public Planner {
 public:
     PlanningResult plan(const PlanningProblem& problem) override;
 
+    int statesExpanded = 0;
+
     // Replanning entry points (Module 6)
     PlanningResult onTransitionUnavailable(uint64_t transitionId, uint64_t fromState, uint64_t toState);
     PlanningResult onTransitionAdded(const Transition& t);

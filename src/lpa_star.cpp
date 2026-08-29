@@ -85,6 +85,7 @@ void LPAStarPlanner::computeShortestPath() {
 
         queue.erase(queue.begin() + minIndex);
         uint64_t u = top.stateId;
+        statesExpanded++;
 
         if (g[u] > rhs[u]) {
             g[u] = rhs[u];
@@ -106,6 +107,8 @@ PlanningResult LPAStarPlanner::plan(const PlanningProblem& inputProblem) {
     delete graphPtr;
     graphPtr = new Graph(problem);
 
+    statesExpanded = 0;
+
     stateLookup.clear();
     for (const State& s : problem.states) stateLookup[s.id] = s;
 
@@ -123,6 +126,7 @@ PlanningResult LPAStarPlanner::plan(const PlanningProblem& inputProblem) {
 }
 
 PlanningResult LPAStarPlanner::onTransitionUnavailable(uint64_t transitionId, uint64_t fromState, uint64_t toState) {
+    statesExpanded = 0;
     graphPtr->setAvailable(transitionId, fromState, false);
     for (auto& t : incoming[toState]) {
         if (t.id == transitionId) t.available = false;
@@ -133,6 +137,7 @@ PlanningResult LPAStarPlanner::onTransitionUnavailable(uint64_t transitionId, ui
 }
 
 PlanningResult LPAStarPlanner::onTransitionAdded(const Transition& t) {
+    statesExpanded = 0;
     graphPtr->addTransition(t);
     incoming[t.to].push_back(t);
     problem.transitions.push_back(t);
@@ -142,6 +147,7 @@ PlanningResult LPAStarPlanner::onTransitionAdded(const Transition& t) {
 }
 
 PlanningResult LPAStarPlanner::onBadStatesChanged(const std::vector<uint64_t>& newBadStates) {
+    statesExpanded = 0;
     problem.badStates = newBadStates;
     for (const State& s : problem.states) {
         updateVertex(s.id);
@@ -151,6 +157,7 @@ PlanningResult LPAStarPlanner::onBadStatesChanged(const std::vector<uint64_t>& n
 }
 
 PlanningResult LPAStarPlanner::onGoalChanged(uint64_t newGoal) {
+    statesExpanded = 0;
     problem.goalState = newGoal;
     std::vector<QueueEntry> oldQueue = queue;
     queue.clear();
