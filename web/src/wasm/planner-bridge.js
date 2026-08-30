@@ -19,7 +19,9 @@ export async function initPlanner() {
   Module = await createPlannerModule({
     locateFile: (path) => {
       if (path.endsWith('.wasm')) {
-        return '/planner.wasm';
+        // import.meta.env.BASE_URL is '/' locally and '/Safe-Semantic-Planner/' on GH Pages.
+        // Ensures planner.wasm is fetched from the correct subpath after deployment.
+        return import.meta.env.BASE_URL + 'planner.wasm';
       }
       return path;
     },
